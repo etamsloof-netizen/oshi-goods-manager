@@ -12,7 +12,7 @@ export default function OshiDetail() {
 
   if (!oshi) return <div className="page"><p>読み込み中...</p></div>;
 
-  const categories = [...new Set(goods?.map((g) => g.category) ?? [])];
+  const categories = [...new Set(goods?.map((g: any) => g.category as string) ?? [])] as string[];
   const totalCount = goods?.reduce((sum, g) => sum + g.count, 0) ?? 0;
 
   return (
