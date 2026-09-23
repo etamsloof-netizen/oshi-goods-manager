@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db } from '../db';
 
-const DEFAULT_CATEGORIES = ['アクキー','缶バッジ','ぬいぐるみ','クリアファイル','フォトカード','Tシャツ','タオル','その他'];
+const DEFAULT_CATEGORIES = ['アクキー','缶バッジ','ぬいぐるみ','クリアファイル','フォトカード','紙類','Tシャツ','タオル','その他'];
 
 export default function GoodsForm() {
   const { oshiId, goodsId } = useParams();
@@ -14,7 +14,7 @@ export default function GoodsForm() {
   const [name, setName] = useState('');
   const [category, setCategory] = useState(DEFAULT_CATEGORIES[0]);
   const [customCategory, setCustomCategory] = useState('');
-  const [count, setCount] = useState(1);
+  const [count, setCount] = useState('');
   const [photo, setPhoto] = useState<string | undefined>();
   const [memo, setMemo] = useState('');
   const [oshiColor, setOshiColor] = useState('#FF8FAB');
@@ -26,7 +26,7 @@ export default function GoodsForm() {
         if (g) {
           setName(g.name);
           setCategory(g.category);
-          setCount(g.count);
+          setCount(String(g.count));
           setPhoto(g.photo);
           setMemo(g.memo ?? '');
         }
@@ -47,15 +47,16 @@ export default function GoodsForm() {
   const handleSave = async () => {
     if (!name.trim()) return alert('グッズ名を入力してください');
     if (!finalCategory.trim()) return alert('カテゴリを入力してください');
+    const countNum = Math.max(0, Math.floor(Number(count) || 0));
     try {
       if (isEdit && parsedGoodsId) {
-        await db.goods.update(parsedGoodsId, { name, category: finalCategory, count, photo, memo });
+        await db.goods.update(parsedGoodsId, { name, category: finalCategory, count: countNum, photo, memo });
       } else {
         await db.goods.add({
           oshiId: parsedOshiId,
           name,
           category: finalCategory,
-          count,
+          count: countNum,
           photo,
           memo,
           createdAt: Date.now(),
@@ -115,14 +116,15 @@ export default function GoodsForm() {
         <div className="form-group">
           <label>数量</label>
           <div className="count-input">
-            <button onClick={() => setCount(Math.max(1, count - 1))}>−</button>
+            <button onClick={() => setCount(String(Math.max(0, (Number(count) || 0) - 1)))}>−</button>
             <input
               type="number"
               value={count}
-              min={1}
-              onChange={(e) => setCount(Math.max(1, Number(e.target.value)))}
+              min={0}
+              placeholder="0"
+              onChange={(e) => setCount(e.target.value)}
             />
-            <button onClick={() => setCount(count + 1)}>＋</button>
+            <button onClick={() => setCount(String((Number(count) || 0) + 1))}>＋</button>
           </div>
         </div>
 
