@@ -413,6 +413,11 @@ body {
   opacity: 0.85;
 }
 
+.save-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .delete-btn {
   width: 100%;
   padding: 12px;

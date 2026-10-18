@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db } from '../db';
 import { requestPersistentStorage } from '../persist';
+import { imageFileToDataUrl, ICON_MAX_SIZE, PHOTO_MAX_SIZE } from '../image';
 
 const PRESET_COLORS = [
   '#FF8FAB', '#FF6B9D', '#C77DFF', '#7B2FBE',
@@ -20,6 +21,7 @@ export default function OshiForm() {
   const [themeColor, setThemeColor] = useState('#FF8FAB');
   const [iconImage, setIconImage] = useState<string | undefined>();
   const [backgroundImage, setBackgroundImage] = useState<string | undefined>();
+  const [imageBusy, setImageBusy] = useState(false);
 
   useEffect(() => {
     if (isEdit && oshiId) {
@@ -34,12 +36,18 @@ export default function OshiForm() {
     }
   }, [oshiId, isEdit]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (v: string) => void) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, setter: (v: string) => void, maxSize: number) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setter(reader.result as string);
-    reader.readAsDataURL(file);
+    setImageBusy(true);
+    try {
+      setter(await imageFileToDataUrl(file, maxSize));
+    } catch (err) {
+      console.error('画像読み込みエラー:', err);
+      alert('画像を読み込めませんでした: ' + String(err));
+    } finally {
+      setImageBusy(false);
+    }
   };
 
   const handleSave = async () => {
@@ -109,19 +117,19 @@ export default function OshiForm() {
         <div className="form-group">
           <label>アイコン画像</label>
           {iconImage && <img src={iconImage} alt="icon" className="preview-img round" />}
-          <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setIconImage)} />
+          <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setIconImage, ICON_MAX_SIZE)} />
           {iconImage && <button className="clear-btn" onClick={() => setIconImage(undefined)}>削除</button>}
         </div>
 
         <div className="form-group">
           <label>背景画像</label>
           {backgroundImage && <img src={backgroundImage} alt="bg" className="preview-img" />}
-          <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setBackgroundImage)} />
+          <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setBackgroundImage, PHOTO_MAX_SIZE)} />
           {backgroundImage && <button className="clear-btn" onClick={() => setBackgroundImage(undefined)}>削除</button>}
         </div>
 
-        <button className="save-btn" style={{ backgroundColor: themeColor }} onClick={handleSave}>
-          保存する
+        <button className="save-btn" style={{ backgroundColor: themeColor }} onClick={handleSave} disabled={imageBusy}>
+          {imageBusy ? '画像を処理中...' : '保存する'}
         </button>
 
         {isEdit && (

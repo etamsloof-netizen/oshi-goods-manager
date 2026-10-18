@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db } from '../db';
 import { requestPersistentStorage } from '../persist';
+import { imageFileToDataUrl, PHOTO_MAX_SIZE } from '../image';
 
 const DEFAULT_CATEGORIES = ['アクキー','缶バッジ','ぬいぐるみ','クリアファイル','フォトカード','紙類','Tシャツ','タオル','その他'];
 
@@ -19,6 +20,7 @@ export default function GoodsForm() {
   const [photo, setPhoto] = useState<string | undefined>();
   const [memo, setMemo] = useState('');
   const [oshiColor, setOshiColor] = useState('#FF8FAB');
+  const [imageBusy, setImageBusy] = useState(false);
 
   useEffect(() => {
     db.oshis.get(parsedOshiId).then((o: any) => { if (o) setOshiColor(o.themeColor); });
@@ -35,12 +37,18 @@ export default function GoodsForm() {
     }
   }, [parsedOshiId, parsedGoodsId, isEdit]);
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setPhoto(reader.result as string);
-    reader.readAsDataURL(file);
+    setImageBusy(true);
+    try {
+      setPhoto(await imageFileToDataUrl(file, PHOTO_MAX_SIZE));
+    } catch (err) {
+      console.error('画像読み込みエラー:', err);
+      alert('画像を読み込めませんでした: ' + String(err));
+    } finally {
+      setImageBusy(false);
+    }
   };
 
   const finalCategory = category === 'カスタム' ? customCategory : category;
@@ -147,8 +155,8 @@ export default function GoodsForm() {
           />
         </div>
 
-        <button className="save-btn" style={{ backgroundColor: oshiColor }} onClick={handleSave}>
-          保存する
+        <button className="save-btn" style={{ backgroundColor: oshiColor }} onClick={handleSave} disabled={imageBusy}>
+          {imageBusy ? '画像を処理中...' : '保存する'}
         </button>
 
         {isEdit && (
