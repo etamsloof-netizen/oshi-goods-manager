@@ -94,13 +94,13 @@ export default function GoodsForm() {
         });
       }
       requestPersistentStorage();
+      // 成功したら「保存中」のままにして、画面が切り替わるまでもう一度押せないようにする
       closeForm(closeTo);
     } catch (e) {
-      console.error('保存エラー:', e);
-      alert('保存に失敗しました: ' + String(e));
-    } finally {
       savingRef.current = false;
       setSaving(false);
+      console.error('保存エラー:', e);
+      alert('保存に失敗しました: ' + String(e));
     }
   };
 
@@ -190,7 +190,7 @@ export default function GoodsForm() {
         </button>
 
         {isEdit && (
-          <button className="delete-btn" onClick={handleDelete}>
+          <button className="delete-btn" onClick={handleDelete} disabled={!loaded}>
             このグッズを削除する
           </button>
         )}

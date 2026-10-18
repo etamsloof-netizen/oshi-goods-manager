@@ -21,7 +21,7 @@ export default function Home() {
         </div>
       )}
 
-      <p style={{ textAlign: 'center', color: '#bbb', fontSize: 11, margin: '4px 0' }}>v1.4</p>
+      <p style={{ textAlign: 'center', color: '#bbb', fontSize: 11, margin: '4px 0' }}>v1.5</p>
 
       <div className="oshi-grid">
         {oshis?.map((oshi) => (

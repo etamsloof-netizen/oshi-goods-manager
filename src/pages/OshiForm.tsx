@@ -72,13 +72,13 @@ export default function OshiForm() {
         await db.oshis.add({ name, themeColor, iconImage, backgroundImage, createdAt: Date.now() });
       }
       requestPersistentStorage();
+      // 成功したら「保存中」のままにして、画面が切り替わるまでもう一度押せないようにする
       closeForm(closeTo);
     } catch (e) {
-      console.error('保存エラー:', e);
-      alert('保存に失敗しました: ' + String(e));
-    } finally {
       savingRef.current = false;
       setSaving(false);
+      console.error('保存エラー:', e);
+      alert('保存に失敗しました: ' + String(e));
     }
   };
 
@@ -158,7 +158,7 @@ export default function OshiForm() {
         </button>
 
         {isEdit && (
-          <button className="delete-btn" onClick={handleDelete}>
+          <button className="delete-btn" onClick={handleDelete} disabled={!loaded}>
             この推しを削除する
           </button>
         )}
