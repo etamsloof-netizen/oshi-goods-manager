@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db } from '../db';
 import { requestPersistentStorage } from '../persist';
@@ -22,6 +22,8 @@ export default function OshiForm() {
   const [iconImage, setIconImage] = useState<string | undefined>();
   const [backgroundImage, setBackgroundImage] = useState<string | undefined>();
   const [imageBusy, setImageBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   useEffect(() => {
     if (isEdit && oshiId) {
@@ -51,7 +53,10 @@ export default function OshiForm() {
   };
 
   const handleSave = async () => {
+    if (savingRef.current) return; // 連打で二重に登録しないように
     if (!name.trim()) return alert('推しの名前を入力してください');
+    savingRef.current = true;
+    setSaving(true);
     try {
       if (isEdit && oshiId) {
         await db.oshis.update(oshiId, { name, themeColor, iconImage, backgroundImage });
@@ -63,15 +68,26 @@ export default function OshiForm() {
     } catch (e) {
       console.error('保存エラー:', e);
       alert('保存に失敗しました: ' + String(e));
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
   };
 
   const handleDelete = async () => {
     if (!oshiId) return;
     if (!confirm(`「${name}」を削除しますか？グッズも全て削除されます。`)) return;
-    await db.goods.where('oshiId').equals(oshiId).delete();
-    await db.oshis.delete(oshiId);
-    navigate('/');
+    try {
+      // グッズと推しをまとめて消す。途中で失敗したら何も消えない
+      await db.transaction('rw', db.oshis, db.goods, async () => {
+        await db.goods.where('oshiId').equals(oshiId).delete();
+        await db.oshis.delete(oshiId);
+      });
+      navigate('/');
+    } catch (e) {
+      console.error('削除エラー:', e);
+      alert('削除に失敗しました。データは何も変わっていません: ' + String(e));
+    }
   };
 
   return (
@@ -128,8 +144,8 @@ export default function OshiForm() {
           {backgroundImage && <button className="clear-btn" onClick={() => setBackgroundImage(undefined)}>削除</button>}
         </div>
 
-        <button className="save-btn" style={{ backgroundColor: themeColor }} onClick={handleSave} disabled={imageBusy}>
-          {imageBusy ? '画像を処理中...' : '保存する'}
+        <button className="save-btn" style={{ backgroundColor: themeColor }} onClick={handleSave} disabled={imageBusy || saving}>
+          {imageBusy ? '画像を処理中...' : saving ? '保存中...' : '保存する'}
         </button>
 
         {isEdit && (

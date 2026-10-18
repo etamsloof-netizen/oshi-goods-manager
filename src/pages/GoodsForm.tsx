@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db } from '../db';
 import { requestPersistentStorage } from '../persist';
@@ -21,6 +21,8 @@ export default function GoodsForm() {
   const [memo, setMemo] = useState('');
   const [oshiColor, setOshiColor] = useState('#FF8FAB');
   const [imageBusy, setImageBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   useEffect(() => {
     db.oshis.get(parsedOshiId).then((o: any) => { if (o) setOshiColor(o.themeColor); });
@@ -28,7 +30,13 @@ export default function GoodsForm() {
       db.goods.get(parsedGoodsId).then((g: any) => {
         if (g) {
           setName(g.name);
-          setCategory(g.category);
+          // 選択肢にないカテゴリ（カスタム入力したもの）は、カスタム欄に入れて表示する
+          if (DEFAULT_CATEGORIES.includes(g.category)) {
+            setCategory(g.category);
+          } else {
+            setCategory('カスタム');
+            setCustomCategory(g.category ?? '');
+          }
           setCount(String(g.count));
           setPhoto(g.photo);
           setMemo(g.memo ?? '');
@@ -54,9 +62,12 @@ export default function GoodsForm() {
   const finalCategory = category === 'カスタム' ? customCategory : category;
 
   const handleSave = async () => {
+    if (savingRef.current) return; // 連打で二重に登録しないように
     if (!name.trim()) return alert('グッズ名を入力してください');
     if (!finalCategory.trim()) return alert('カテゴリを入力してください');
     const countNum = Math.max(0, Math.floor(Number(count) || 0));
+    savingRef.current = true;
+    setSaving(true);
     try {
       if (isEdit && parsedGoodsId) {
         await db.goods.update(parsedGoodsId, { name, category: finalCategory, count: countNum, photo, memo });
@@ -76,14 +87,22 @@ export default function GoodsForm() {
     } catch (e) {
       console.error('保存エラー:', e);
       alert('保存に失敗しました: ' + String(e));
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
   };
 
   const handleDelete = async () => {
     if (!parsedGoodsId) return;
     if (!confirm(`「${name}」を削除しますか？`)) return;
-    await db.goods.delete(parsedGoodsId);
-    navigate(`/oshi/${oshiId}`);
+    try {
+      await db.goods.delete(parsedGoodsId);
+      navigate(`/oshi/${oshiId}`);
+    } catch (e) {
+      console.error('削除エラー:', e);
+      alert('削除に失敗しました: ' + String(e));
+    }
   };
 
   return (
@@ -155,8 +174,8 @@ export default function GoodsForm() {
           />
         </div>
 
-        <button className="save-btn" style={{ backgroundColor: oshiColor }} onClick={handleSave} disabled={imageBusy}>
-          {imageBusy ? '画像を処理中...' : '保存する'}
+        <button className="save-btn" style={{ backgroundColor: oshiColor }} onClick={handleSave} disabled={imageBusy || saving}>
+          {imageBusy ? '画像を処理中...' : saving ? '保存中...' : '保存する'}
         </button>
 
         {isEdit && (
