@@ -52,6 +52,10 @@ export default function RestorePanel({ onRestored }: { onRestored?: () => void }
     });
   };
 
+  const selectedCandidates = candidates.filter((c) => selected.has(c.id));
+  const selectedGoodsCount = selectedCandidates.reduce((sum, c) => sum + c.goodsCount, 0);
+  const selectedDroppedImages = selectedCandidates.reduce((sum, c) => sum + c.droppedImageCount, 0);
+
   const handleRestore = async () => {
     if (!backup || selected.size === 0) return;
     setBusy(true);
@@ -60,7 +64,10 @@ export default function RestorePanel({ onRestored }: { onRestored?: () => void }
       requestPersistentStorage();
       onRestored?.();
       reset();
-      alert(`推し${result.oshis}人・グッズ${result.goods}件を戻しました`);
+      alert(
+        `推し${result.oshis}人・グッズ${result.goods}件を戻しました` +
+          (selectedDroppedImages > 0 ? `（形式がおかしい画像${selectedDroppedImages}枚は外しました）` : ''),
+      );
     } catch (err) {
       console.error('取り込みエラー:', err);
       alert('取り込みに失敗しました。データは何も変わっていません。\n' + String(err));
@@ -82,9 +89,6 @@ export default function RestorePanel({ onRestored }: { onRestored?: () => void }
   }
 
   const exportedAt = Date.parse(backup.exportedAt);
-  const selectedGoodsCount = candidates
-    .filter((c) => selected.has(c.id))
-    .reduce((sum, c) => sum + c.goodsCount, 0);
 
   return (
     <>
@@ -107,8 +111,8 @@ export default function RestorePanel({ onRestored }: { onRestored?: () => void }
           ))}
         </ul>
       )}
-      {backup.droppedImageCount > 0 && (
-        <p className="backup-note">形式がおかしい画像{backup.droppedImageCount}枚は外して取り込みます（推しやグッズ自体は取り込みます）。</p>
+      {selectedDroppedImages > 0 && (
+        <p className="backup-note">形式がおかしい画像{selectedDroppedImages}枚は外して取り込みます（推しやグッズ自体は取り込みます）。</p>
       )}
       {backup.orphanGoodsCount > 0 && (
         <p className="backup-note">

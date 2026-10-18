@@ -31,14 +31,15 @@ export type ParsedBackup = {
   goods: BackupGoods[];
   // どの推しにも属していないグッズ（アプリ上にも表示されていなかったもの）の数。これは取り込まない
   orphanGoodsCount: number;
-  // 形式がおかしいため外した画像の数
-  droppedImageCount: number;
+  // 形式がおかしいため外した画像の数（推しの元の番号ごと。その推しのグッズの写真も含む）
+  droppedImagesByOshi: Map<number, number>;
 };
 
 export type RestoreCandidate = {
   id: number;
   name: string;
   goodsCount: number;
+  droppedImageCount: number;
   // 同じ名前の推しがすでにいる（選ぶと二重になるかもしれない）
   nameExists: boolean;
 };
@@ -62,14 +63,14 @@ function isId(value: unknown): value is number {
 // このアプリが保存する画像の形（data:種類;base64,中身）。かっこや引用符などは含まない
 const DATA_URL_PATTERN = /^data:[\w.+/-]*(;[\w.+/-]+=[\w.+/-]+)*;base64,[A-Za-z0-9+/]*={0,2}$/;
 
-type ReadContext = { droppedImageCount: number };
+type ReadContext = { droppedImagesByOshi: Map<number, number> };
 
 // 画像は「なし」か、上の形のものだけを受け付ける（画像以外のファイルが保存されていても、そのまま戻す）
 // 形が違うもの（壊れている・細工されている）は、ファイル全体ははじかずにその画像だけ外す
-function readImage(value: unknown, ctx: ReadContext): string | undefined {
+function readImage(value: unknown, ctx: ReadContext, oshiId: number): string | undefined {
   if (value === undefined || value === null) return undefined;
   if (typeof value === 'string' && DATA_URL_PATTERN.test(value)) return value;
-  ctx.droppedImageCount++;
+  ctx.droppedImagesByOshi.set(oshiId, (ctx.droppedImagesByOshi.get(oshiId) ?? 0) + 1);
   return undefined;
 }
 
@@ -90,8 +91,8 @@ function readOshi(value: unknown, ctx: ReadContext): BackupOshi {
     id: value.id,
     name: value.name,
     themeColor: typeof value.themeColor === 'string' ? value.themeColor : DEFAULT_THEME_COLOR,
-    iconImage: readImage(value.iconImage, ctx),
-    backgroundImage: readImage(value.backgroundImage, ctx),
+    iconImage: readImage(value.iconImage, ctx, value.id),
+    backgroundImage: readImage(value.backgroundImage, ctx, value.id),
     createdAt: readCreatedAt(value.createdAt),
   };
 }
@@ -106,7 +107,7 @@ function readGoods(value: Json, id: number, oshiId: number, ctx: ReadContext): B
     name: value.name,
     category: value.category,
     count: readCount(value.count),
-    photo: readImage(value.photo, ctx),
+    photo: readImage(value.photo, ctx, oshiId),
     memo: typeof value.memo === 'string' ? value.memo : undefined,
     createdAt: readCreatedAt(value.createdAt),
   };
@@ -130,7 +131,7 @@ export function parseBackup(text: string): ParsedBackup {
     throw new BackupFormatError(BROKEN_MESSAGE);
   }
 
-  const ctx: ReadContext = { droppedImageCount: 0 };
+  const ctx: ReadContext = { droppedImagesByOshi: new Map() };
   const oshis = data.oshis.map((value) => readOshi(value, ctx));
   const oshiIds = new Set(oshis.map((oshi) => oshi.id));
   if (oshiIds.size !== oshis.length) throw new BackupFormatError(BROKEN_MESSAGE);
@@ -155,7 +156,7 @@ export function parseBackup(text: string): ParsedBackup {
     oshis,
     goods,
     orphanGoodsCount,
-    droppedImageCount: ctx.droppedImageCount,
+    droppedImagesByOshi: ctx.droppedImagesByOshi,
   };
 }
 
@@ -172,6 +173,7 @@ export function buildRestoreCandidates(backup: ParsedBackup, existingNames: Set<
     id: oshi.id,
     name: oshi.name,
     goodsCount: backup.goods.filter((item) => item.oshiId === oshi.id).length,
+    droppedImageCount: backup.droppedImagesByOshi.get(oshi.id) ?? 0,
     nameExists: existingNames.has(oshi.name),
   }));
 }

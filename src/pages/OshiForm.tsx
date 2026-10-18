@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { db } from '../db';
 import { requestPersistentStorage } from '../persist';
 import { imageFileToDataUrl, ICON_MAX_SIZE, PHOTO_MAX_SIZE } from '../image';
+import { useCloseForm } from '../navigation';
 
 const PRESET_COLORS = [
   '#FF8FAB', '#FF6B9D', '#C77DFF', '#7B2FBE',
@@ -14,8 +15,10 @@ const PRESET_COLORS = [
 export default function OshiForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const closeForm = useCloseForm();
   const isEdit = id !== undefined;
   const oshiId = id ? Number(id) : null;
+  const closeTo = isEdit ? `/oshi/${id}` : '/';
 
   const [name, setName] = useState('');
   const [themeColor, setThemeColor] = useState('#FF8FAB');
@@ -24,6 +27,8 @@ export default function OshiForm() {
   const [imageBusy, setImageBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
+  // 編集のときは、元のデータを読み込み終わるまで保存させない（空の値で上書きしないため）
+  const [loaded, setLoaded] = useState(!isEdit);
 
   useEffect(() => {
     if (isEdit && oshiId) {
@@ -34,7 +39,8 @@ export default function OshiForm() {
           setIconImage(oshi.iconImage);
           setBackgroundImage(oshi.backgroundImage);
         }
-      });
+        setLoaded(true);
+      }).catch((e: unknown) => console.error('読み込みエラー:', e));
     }
   }, [oshiId, isEdit]);
 
@@ -54,7 +60,7 @@ export default function OshiForm() {
   };
 
   const handleSave = async () => {
-    if (savingRef.current) return; // 連打で二重に登録しないように
+    if (savingRef.current || !loaded) return; // 連打で二重に登録しないように
     if (!name.trim()) return alert('推しの名前を入力してください');
     savingRef.current = true;
     setSaving(true);
@@ -66,8 +72,7 @@ export default function OshiForm() {
         await db.oshis.add({ name, themeColor, iconImage, backgroundImage, createdAt: Date.now() });
       }
       requestPersistentStorage();
-      // 履歴を置き換えて、戻る操作で保存済みのフォームに戻らないようにする
-      navigate('/', { replace: true });
+      closeForm(closeTo);
     } catch (e) {
       console.error('保存エラー:', e);
       alert('保存に失敗しました: ' + String(e));
@@ -86,6 +91,7 @@ export default function OshiForm() {
         await db.goods.where('oshiId').equals(oshiId).delete();
         await db.oshis.delete(oshiId);
       });
+      // 1つ前は削除した推しの画面なので、戻らずにホームへ移る
       navigate('/', { replace: true });
     } catch (e) {
       console.error('削除エラー:', e);
@@ -96,7 +102,7 @@ export default function OshiForm() {
   return (
     <div className="page">
       <header className="form-header" style={{ backgroundColor: themeColor }}>
-        <button className="back-btn" onClick={() => navigate(-1)}>←</button>
+        <button className="back-btn" onClick={() => closeForm(closeTo)}>←</button>
         <h2>{isEdit ? '推しを編集' : '推しを追加'}</h2>
       </header>
 
@@ -147,8 +153,8 @@ export default function OshiForm() {
           {backgroundImage && <button className="clear-btn" onClick={() => setBackgroundImage(undefined)}>削除</button>}
         </div>
 
-        <button className="save-btn" style={{ backgroundColor: themeColor }} onClick={handleSave} disabled={imageBusy || saving}>
-          {imageBusy ? '画像を処理中...' : saving ? '保存中...' : '保存する'}
+        <button className="save-btn" style={{ backgroundColor: themeColor }} onClick={handleSave} disabled={!loaded || imageBusy || saving}>
+          {!loaded ? '読み込み中...' : imageBusy ? '画像を処理中...' : saving ? '保存中...' : '保存する'}
         </button>
 
         {isEdit && (

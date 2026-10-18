@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { db } from '../db';
 import { requestPersistentStorage } from '../persist';
 import { imageFileToDataUrl, PHOTO_MAX_SIZE } from '../image';
+import { useCloseForm } from '../navigation';
 
 const DEFAULT_CATEGORIES = ['アクキー','缶バッジ','ぬいぐるみ','クリアファイル','フォトカード','紙類','Tシャツ','タオル','その他'];
 
 export default function GoodsForm() {
   const { oshiId, goodsId } = useParams();
-  const navigate = useNavigate();
+  const closeForm = useCloseForm();
+  const closeTo = `/oshi/${oshiId}`;
   const isEdit = goodsId !== undefined;
   const parsedOshiId = Number(oshiId);
   const parsedGoodsId = goodsId ? Number(goodsId) : null;
@@ -23,6 +25,8 @@ export default function GoodsForm() {
   const [imageBusy, setImageBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
+  // 編集のときは、元のデータを読み込み終わるまで保存させない（空の値で上書きしないため）
+  const [loaded, setLoaded] = useState(!isEdit);
 
   useEffect(() => {
     db.oshis.get(parsedOshiId).then((o: any) => { if (o) setOshiColor(o.themeColor); });
@@ -41,7 +45,8 @@ export default function GoodsForm() {
           setPhoto(g.photo);
           setMemo(g.memo ?? '');
         }
-      });
+        setLoaded(true);
+      }).catch((e: unknown) => console.error('読み込みエラー:', e));
     }
   }, [parsedOshiId, parsedGoodsId, isEdit]);
 
@@ -63,7 +68,7 @@ export default function GoodsForm() {
   const finalCategory = category === 'カスタム' ? customCategory : category;
 
   const handleSave = async () => {
-    if (savingRef.current) return; // 連打で二重に登録しないように
+    if (savingRef.current || !loaded) return; // 連打で二重に登録しないように
     if (!name.trim()) return alert('グッズ名を入力してください');
     if (!finalCategory.trim()) return alert('カテゴリを入力してください');
     const countNum = Math.max(0, Math.floor(Number(count) || 0));
@@ -89,8 +94,7 @@ export default function GoodsForm() {
         });
       }
       requestPersistentStorage();
-      // 履歴を置き換えて、戻る操作で保存済みのフォームに戻らないようにする
-      navigate(`/oshi/${oshiId}`, { replace: true });
+      closeForm(closeTo);
     } catch (e) {
       console.error('保存エラー:', e);
       alert('保存に失敗しました: ' + String(e));
@@ -105,7 +109,7 @@ export default function GoodsForm() {
     if (!confirm(`「${name}」を削除しますか？`)) return;
     try {
       await db.goods.delete(parsedGoodsId);
-      navigate(`/oshi/${oshiId}`, { replace: true });
+      closeForm(closeTo);
     } catch (e) {
       console.error('削除エラー:', e);
       alert('削除に失敗しました: ' + String(e));
@@ -115,7 +119,7 @@ export default function GoodsForm() {
   return (
     <div className="page">
       <header className="form-header" style={{ backgroundColor: oshiColor }}>
-        <button className="back-btn" onClick={() => navigate(-1)}>←</button>
+        <button className="back-btn" onClick={() => closeForm(closeTo)}>←</button>
         <h2>{isEdit ? 'グッズを編集' : 'グッズを追加'}</h2>
       </header>
 
@@ -181,8 +185,8 @@ export default function GoodsForm() {
           />
         </div>
 
-        <button className="save-btn" style={{ backgroundColor: oshiColor }} onClick={handleSave} disabled={imageBusy || saving}>
-          {imageBusy ? '画像を処理中...' : saving ? '保存中...' : '保存する'}
+        <button className="save-btn" style={{ backgroundColor: oshiColor }} onClick={handleSave} disabled={!loaded || imageBusy || saving}>
+          {!loaded ? '読み込み中...' : imageBusy ? '画像を処理中...' : saving ? '保存中...' : '保存する'}
         </button>
 
         {isEdit && (

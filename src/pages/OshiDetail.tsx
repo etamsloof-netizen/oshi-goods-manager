@@ -45,13 +45,26 @@ export default function OshiDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const oshiId = Number(id);
+  const validId = Number.isInteger(oshiId) && oshiId > 0;
 
-  const oshi = useLiveQuery(() => db.oshis.get(oshiId), [oshiId]);
-  const goods = useLiveQuery(() => db.goods.where('oshiId').equals(oshiId).toArray(), [oshiId]);
+  // undefined は読み込み中、null は見つからない（削除済み・URL違い）
+  const oshi = useLiveQuery(async () => (validId ? ((await db.oshis.get(oshiId)) ?? null) : null), [oshiId, validId]);
+  const goods = useLiveQuery(() => (validId ? db.goods.where('oshiId').equals(oshiId).toArray() : []), [oshiId, validId]);
   const [sortKey, setSortKey] = useState<SortKey>(() => loadSetting(SORT_STORAGE_KEY, 'created') as SortKey);
   const [groupByCategory, setGroupByCategory] = useState(() => loadSetting(GROUP_STORAGE_KEY, 'true') === 'true');
 
-  if (!oshi) return <div className="page"><p>読み込み中...</p></div>;
+  if (oshi === undefined) return <div className="page"><p>読み込み中...</p></div>;
+  if (oshi === null) {
+    return (
+      <div className="page">
+        <div className="empty-state">
+          <p>この推しは見つかりませんでした</p>
+          <p>削除されたか、URLが違う可能性があります</p>
+          <button className="add-btn" onClick={() => navigate('/', { replace: true })}>ホームに戻る</button>
+        </div>
+      </div>
+    );
+  }
 
   const categories = [...new Set(goods?.map((g: any) => g.category as string) ?? [])] as string[];
   const totalCount = goods?.reduce((sum, g) => sum + g.count, 0) ?? 0;
