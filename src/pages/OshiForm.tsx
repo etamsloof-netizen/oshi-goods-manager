@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db } from '../db';
+import { requestPersistentStorage } from '../persist';
 
 const PRESET_COLORS = [
   '#FF8FAB', '#FF6B9D', '#C77DFF', '#7B2FBE',
@@ -49,6 +50,7 @@ export default function OshiForm() {
       } else {
         await db.oshis.add({ name, themeColor, iconImage, backgroundImage, createdAt: Date.now() });
       }
+      requestPersistentStorage();
       navigate('/');
     } catch (e) {
       console.error('保存エラー:', e);

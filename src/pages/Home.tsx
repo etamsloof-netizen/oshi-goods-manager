@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../db';
+import BackupSection from '../components/BackupSection';
 
 export default function Home() {
   const oshis = useLiveQuery(() => db.oshis.toArray());
@@ -20,7 +21,7 @@ export default function Home() {
         </div>
       )}
 
-      <p style={{ textAlign: 'center', color: '#bbb', fontSize: 11, margin: '4px 0' }}>v1.2</p>
+      <p style={{ textAlign: 'center', color: '#bbb', fontSize: 11, margin: '4px 0' }}>v1.3</p>
 
       <div className="oshi-grid">
         {oshis?.map((oshi) => (
@@ -40,6 +41,8 @@ export default function Home() {
           </div>
         ))}
       </div>
+
+      <BackupSection />
     </div>
   );
 }

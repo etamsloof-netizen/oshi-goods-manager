@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db } from '../db';
+import { requestPersistentStorage } from '../persist';
 
 const DEFAULT_CATEGORIES = ['アクキー','缶バッジ','ぬいぐるみ','クリアファイル','フォトカード','紙類','Tシャツ','タオル','その他'];
 
@@ -62,6 +63,7 @@ export default function GoodsForm() {
           createdAt: Date.now(),
         });
       }
+      requestPersistentStorage();
       navigate(`/oshi/${oshiId}`);
     } catch (e) {
       console.error('保存エラー:', e);
