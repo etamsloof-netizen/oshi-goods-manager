@@ -10,7 +10,8 @@ import {
 } from '../restore';
 import { requestPersistentStorage } from '../persist';
 
-export default function RestorePanel() {
+// onRestored: 取り込みが終わったときに呼ぶ（作成済みで未保存のバックアップを破棄するため）
+export default function RestorePanel({ onRestored }: { onRestored?: () => void }) {
   const [backup, setBackup] = useState<ParsedBackup | null>(null);
   const [candidates, setCandidates] = useState<RestoreCandidate[]>([]);
   const [selected, setSelected] = useState<Set<number>>(() => new Set());
@@ -57,6 +58,7 @@ export default function RestorePanel() {
     try {
       const result = await restoreBackup(backup, selected);
       requestPersistentStorage();
+      onRestored?.();
       reset();
       alert(`推し${result.oshis}人・グッズ${result.goods}件を戻しました`);
     } catch (err) {
@@ -104,6 +106,9 @@ export default function RestorePanel() {
             </li>
           ))}
         </ul>
+      )}
+      {backup.droppedImageCount > 0 && (
+        <p className="backup-note">形式がおかしい画像{backup.droppedImageCount}枚は外して取り込みます（推しやグッズ自体は取り込みます）。</p>
       )}
       {backup.orphanGoodsCount > 0 && (
         <p className="backup-note">

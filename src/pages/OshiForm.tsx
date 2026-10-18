@@ -40,6 +40,7 @@ export default function OshiForm() {
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, setter: (v: string) => void, maxSize: number) => {
     const file = e.target.files?.[0];
+    e.target.value = ''; // 削除したあとに同じ画像を選び直せるように
     if (!file) return;
     setImageBusy(true);
     try {
@@ -59,12 +60,14 @@ export default function OshiForm() {
     setSaving(true);
     try {
       if (isEdit && oshiId) {
-        await db.oshis.update(oshiId, { name, themeColor, iconImage, backgroundImage });
+        const updated = await db.oshis.update(oshiId, { name, themeColor, iconImage, backgroundImage });
+        if (!updated) throw new Error('この推しはすでに削除されています');
       } else {
         await db.oshis.add({ name, themeColor, iconImage, backgroundImage, createdAt: Date.now() });
       }
       requestPersistentStorage();
-      navigate('/');
+      // 履歴を置き換えて、戻る操作で保存済みのフォームに戻らないようにする
+      navigate('/', { replace: true });
     } catch (e) {
       console.error('保存エラー:', e);
       alert('保存に失敗しました: ' + String(e));
@@ -83,7 +86,7 @@ export default function OshiForm() {
         await db.goods.where('oshiId').equals(oshiId).delete();
         await db.oshis.delete(oshiId);
       });
-      navigate('/');
+      navigate('/', { replace: true });
     } catch (e) {
       console.error('削除エラー:', e);
       alert('削除に失敗しました。データは何も変わっていません: ' + String(e));
@@ -133,14 +136,14 @@ export default function OshiForm() {
         <div className="form-group">
           <label>アイコン画像</label>
           {iconImage && <img src={iconImage} alt="icon" className="preview-img round" />}
-          <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setIconImage, ICON_MAX_SIZE)} />
+          <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setIconImage, ICON_MAX_SIZE)} disabled={imageBusy} />
           {iconImage && <button className="clear-btn" onClick={() => setIconImage(undefined)}>削除</button>}
         </div>
 
         <div className="form-group">
           <label>背景画像</label>
           {backgroundImage && <img src={backgroundImage} alt="bg" className="preview-img" />}
-          <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setBackgroundImage, PHOTO_MAX_SIZE)} />
+          <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setBackgroundImage, PHOTO_MAX_SIZE)} disabled={imageBusy} />
           {backgroundImage && <button className="clear-btn" onClick={() => setBackgroundImage(undefined)}>削除</button>}
         </div>
 

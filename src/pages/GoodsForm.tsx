@@ -47,6 +47,7 @@ export default function GoodsForm() {
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = ''; // 削除したあとに同じ写真を選び直せるように
     if (!file) return;
     setImageBusy(true);
     try {
@@ -70,20 +71,26 @@ export default function GoodsForm() {
     setSaving(true);
     try {
       if (isEdit && parsedGoodsId) {
-        await db.goods.update(parsedGoodsId, { name, category: finalCategory, count: countNum, photo, memo });
+        const updated = await db.goods.update(parsedGoodsId, { name, category: finalCategory, count: countNum, photo, memo });
+        if (!updated) throw new Error('このグッズはすでに削除されています');
       } else {
-        await db.goods.add({
-          oshiId: parsedOshiId,
-          name,
-          category: finalCategory,
-          count: countNum,
-          photo,
-          memo,
-          createdAt: Date.now(),
+        // 推しが削除されていたら追加しない（どこにも表示されないグッズができてしまうため）
+        await db.transaction('rw', db.oshis, db.goods, async () => {
+          if (!(await db.oshis.get(parsedOshiId))) throw new Error('この推しはすでに削除されています');
+          await db.goods.add({
+            oshiId: parsedOshiId,
+            name,
+            category: finalCategory,
+            count: countNum,
+            photo,
+            memo,
+            createdAt: Date.now(),
+          });
         });
       }
       requestPersistentStorage();
-      navigate(`/oshi/${oshiId}`);
+      // 履歴を置き換えて、戻る操作で保存済みのフォームに戻らないようにする
+      navigate(`/oshi/${oshiId}`, { replace: true });
     } catch (e) {
       console.error('保存エラー:', e);
       alert('保存に失敗しました: ' + String(e));
@@ -98,7 +105,7 @@ export default function GoodsForm() {
     if (!confirm(`「${name}」を削除しますか？`)) return;
     try {
       await db.goods.delete(parsedGoodsId);
-      navigate(`/oshi/${oshiId}`);
+      navigate(`/oshi/${oshiId}`, { replace: true });
     } catch (e) {
       console.error('削除エラー:', e);
       alert('削除に失敗しました: ' + String(e));
@@ -160,7 +167,7 @@ export default function GoodsForm() {
         <div className="form-group">
           <label>写真</label>
           {photo && <img src={photo} alt="goods" className="preview-img" />}
-          <input type="file" accept="image/*" onChange={handlePhotoUpload} />
+          <input type="file" accept="image/*" onChange={handlePhotoUpload} disabled={imageBusy} />
           {photo && <button className="clear-btn" onClick={() => setPhoto(undefined)}>削除</button>}
         </div>
 

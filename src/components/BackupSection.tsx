@@ -88,7 +88,7 @@ export default function BackupSection() {
         <p className="backup-note">前の端末などで保存したバックアップファイルがあれば、ここから元に戻せます。</p>
       )}
       <div className="restore-area">
-        <RestorePanel />
+        <RestorePanel onRestored={() => setFile(null)} />
       </div>
     </section>
   );
