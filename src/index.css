@@ -523,3 +523,61 @@ body {
   opacity: 0.6;
   cursor: default;
 }
+
+/* バックアップから戻す */
+.restore-area {
+  border-top: 1px solid #eee;
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.restore-btn {
+  position: relative;
+  display: block;
+  padding: 12px;
+  border: 1px solid #7EC8E3;
+  border-radius: 12px;
+  background: #fff;
+  color: #3a9cc0;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+
+.restore-btn.disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* ファイル選択の入力欄は見えなくして、ボタン全体を押せるようにする */
+.restore-btn input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.restore-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.restore-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.restore-exists {
+  font-size: 12px;
+  color: #e05555;
+  margin-left: 24px;
+}

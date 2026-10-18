@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { createBackupFile, saveBackupFile, getLastBackupAt, recordBackupDone } from '../backup';
+import RestorePanel from './RestorePanel';
 
 const REMIND_AFTER_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -19,7 +20,8 @@ export default function BackupSection() {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (!hasData) return null;
+  // データが0件の新しい端末でも「バックアップから戻す」は出す
+  if (hasData === undefined) return null;
 
   const daysSince = lastBackupAt === null ? null : Math.max(0, Math.floor((now - lastBackupAt) / DAY_MS));
   const needsBackup = daysSince === null || daysSince >= REMIND_AFTER_DAYS;
@@ -57,28 +59,37 @@ export default function BackupSection() {
   return (
     <section className="backup-section">
       <h2>データのバックアップ</h2>
-      <p className={`backup-status ${needsBackup ? 'warning' : ''}`}>
-        {lastBackupAt === null
-          ? 'まだバックアップしていません'
-          : `最終バックアップ: ${new Date(lastBackupAt).toLocaleDateString('ja-JP')}（${daysSince === 0 ? '今日' : `${daysSince}日前`}）`}
-      </p>
-      <p className="backup-note">
-        データはこの端末のブラウザの中にだけ保存されています。機種変更やブラウザのデータ削除に備えて、ときどきバックアップを保存しておきましょう（写真も含めて1つのファイルになります）。
-      </p>
-      <p className="backup-note">
-        保存先は「iCloud Drive」や「Googleドライブ」などのクラウドがおすすめです（「このiPhone内」だと、iPhoneをなくしたときに一緒に消えてしまいます）。バックアップから元に戻す機能は近日追加予定です。
-      </p>
-      {file ? (
+      {hasData ? (
         <>
-          <p className="backup-status">ファイルの準備ができました（{formatSize(file.size)}）</p>
-          <button className="backup-btn" onClick={handleSave} disabled={busy}>保存する</button>
-          <button className="clear-btn" onClick={() => setFile(null)} disabled={busy}>やめる</button>
+          <p className={`backup-status ${needsBackup ? 'warning' : ''}`}>
+            {lastBackupAt === null
+              ? 'まだバックアップしていません'
+              : `最終バックアップ: ${new Date(lastBackupAt).toLocaleDateString('ja-JP')}（${daysSince === 0 ? '今日' : `${daysSince}日前`}）`}
+          </p>
+          <p className="backup-note">
+            データはこの端末のブラウザの中にだけ保存されています。機種変更やブラウザのデータ削除に備えて、ときどきバックアップを保存しておきましょう（写真も含めて1つのファイルになります）。
+          </p>
+          <p className="backup-note">
+            保存先は「iCloud Drive」や「Googleドライブ」などのクラウドがおすすめです（「このiPhone内」だと、iPhoneをなくしたときに一緒に消えてしまいます）。
+          </p>
+          {file ? (
+            <>
+              <p className="backup-status">ファイルの準備ができました（{formatSize(file.size)}）</p>
+              <button className="backup-btn" onClick={handleSave} disabled={busy}>保存する</button>
+              <button className="clear-btn" onClick={() => setFile(null)} disabled={busy}>やめる</button>
+            </>
+          ) : (
+            <button className="backup-btn" onClick={handleCreate} disabled={busy}>
+              {busy ? '作成中...' : 'バックアップを作成'}
+            </button>
+          )}
         </>
       ) : (
-        <button className="backup-btn" onClick={handleCreate} disabled={busy}>
-          {busy ? '作成中...' : 'バックアップを作成'}
-        </button>
+        <p className="backup-note">前の端末などで保存したバックアップファイルがあれば、ここから元に戻せます。</p>
       )}
+      <div className="restore-area">
+        <RestorePanel />
+      </div>
     </section>
   );
 }
